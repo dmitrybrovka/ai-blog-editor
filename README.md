@@ -28,9 +28,11 @@ Create `.env` (or copy from `.env.example`) and set:
 
 ```bash
 AIBLOG_POSTS_DIR="/absolute/path/to/your/posts"
+AIBLOG_OUT_DIR="/absolute/path/to/where/to/store/drafts"
 ```
 
 This overrides `posts_dir` from `config.yaml`.
+`--out` CLI flags always override both `.env` and `config.yaml`.
 
 #### Obsidian-friendly Markdown format
 We support Obsidian notes with YAML frontmatter. Example:

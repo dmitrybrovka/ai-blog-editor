@@ -78,13 +78,14 @@ def ingest(
 def outline(
     topic: str,
     notes: str = typer.Option("", "--notes"),
-    out: Path = typer.Option(Path("out/outline.md"), "--out"),
+    out: Optional[Path] = typer.Option(None, "--out"),
     config: Path = typer.Option(Path("config.yaml"), "--config"),
 ) -> None:
     """Generate an outline using RAG."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
     text = writer.outline(topic=topic, notes=notes)
+    out = out or (Path(cfg.out_dir) / "outline.md")
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 
@@ -93,13 +94,14 @@ def outline(
 def draft(
     topic: str,
     notes: str = typer.Option("", "--notes"),
-    out: Path = typer.Option(Path("out/draft.md"), "--out"),
+    out: Optional[Path] = typer.Option(None, "--out"),
     config: Path = typer.Option(Path("config.yaml"), "--config"),
 ) -> None:
     """Generate a draft post using RAG."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
     text = writer.draft(topic=topic, notes=notes)
+    out = out or (Path(cfg.out_dir) / "draft.md")
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 
@@ -107,7 +109,7 @@ def draft(
 @app.command()
 def rewrite(
     in_path: Path = typer.Option(..., "--in"),
-    out: Path = typer.Option(Path("out/rewrite.md"), "--out"),
+    out: Optional[Path] = typer.Option(None, "--out"),
     config: Path = typer.Option(Path("config.yaml"), "--config"),
     topic_hint: str = typer.Option("", "--topic-hint"),
 ) -> None:
@@ -115,6 +117,7 @@ def rewrite(
     cfg = load_config(config)
     writer = RagWriter(cfg)
     text = writer.rewrite(input_text=_read_text(in_path), topic_hint=topic_hint)
+    out = out or (Path(cfg.out_dir) / "rewrite.md")
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 
@@ -122,20 +125,21 @@ def rewrite(
 @app.command()
 def headline(
     topic: str,
-    out: Path = typer.Option(Path("out/headlines.md"), "--out"),
+    out: Optional[Path] = typer.Option(None, "--out"),
     config: Path = typer.Option(Path("config.yaml"), "--config"),
 ) -> None:
     """Generate headline variants."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
     text = writer.headline(topic=topic)
+    out = out or (Path(cfg.out_dir) / "headlines.md")
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 
 
 @dataset_app.command("lora")
 def dataset_lora(
-    out: Path = typer.Option(Path("out/lora_dataset.jsonl"), "--out"),
+    out: Optional[Path] = typer.Option(None, "--out"),
     config: Path = typer.Option(Path("config.yaml"), "--config"),
     posts_dir: Optional[Path] = typer.Option(None, "--posts-dir", help="Overrides config posts_dir"),
     include_drafts: bool = typer.Option(False, "--include-drafts"),
@@ -161,6 +165,7 @@ def dataset_lora(
         console.print_json(data=stats)
         raise typer.Exit(code=2)
 
+    out = out or (Path(cfg.out_dir) / "lora_dataset.jsonl")
     write_jsonl(examples, out)
     console.print(f"[green]Wrote:[/] {out}")
     console.print_json(data=stats)

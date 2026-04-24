@@ -5,6 +5,7 @@ ollama:
   request_timeout_s: 120.0
 
 posts_dir: "data/posts"
+out_dir: "out"
 
 rag:
   persist_dir: ".aiblog/chroma"

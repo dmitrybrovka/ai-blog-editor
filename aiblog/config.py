@@ -42,6 +42,7 @@ class AppConfig(BaseModel):
     style: StyleConfig = Field(default_factory=StyleConfig)
 
     posts_dir: str = "data/posts"
+    out_dir: str = "out"
 
 
 def default_config_path() -> Path:
@@ -62,6 +63,14 @@ def load_config(path: Optional[Path] = None) -> AppConfig:
     posts_dir = os.getenv("AIBLOG_POSTS_DIR")
     if posts_dir and posts_dir.strip():
         cfg.posts_dir = posts_dir.strip()
+
+    out_dir = os.getenv("AIBLOG_OUT_DIR")
+    if out_dir and out_dir.strip():
+        cfg.out_dir = out_dir.strip()
+
+    # Expand "~" and normalize paths for consistent behavior.
+    cfg.posts_dir = str(Path(cfg.posts_dir).expanduser())
+    cfg.out_dir = str(Path(cfg.out_dir).expanduser())
 
     return cfg
 

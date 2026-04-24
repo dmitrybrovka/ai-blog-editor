@@ -7,13 +7,16 @@ import typer
 from rich.console import Console
 
 from aiblog.config import load_config, save_default_config
+from aiblog.lora_dataset import build_dataset, write_jsonl
 from aiblog.rag import RagWriter
 from aiblog.store import build_chunks, load_post
 
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 config_app = typer.Typer(no_args_is_help=True)
+dataset_app = typer.Typer(no_args_is_help=True)
 app.add_typer(config_app, name="config")
+app.add_typer(dataset_app, name="dataset")
 
 console = Console()
 
@@ -128,4 +131,37 @@ def headline(
     text = writer.headline(topic=topic)
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
+
+
+@dataset_app.command("lora")
+def dataset_lora(
+    out: Path = typer.Option(Path("out/lora_dataset.jsonl"), "--out"),
+    config: Path = typer.Option(Path("config.yaml"), "--config"),
+    posts_dir: Optional[Path] = typer.Option(None, "--posts-dir", help="Overrides config posts_dir"),
+    include_drafts: bool = typer.Option(False, "--include-drafts"),
+    redact: bool = typer.Option(True, "--redact/--no-redact", help="Redact obvious PII-like strings"),
+    limit: Optional[int] = typer.Option(None, "--limit", help="Max number of examples"),
+) -> None:
+    """Build an instruction-tuning JSONL dataset for LoRA from your Markdown posts."""
+    cfg = load_config(config)
+    root = posts_dir or Path(cfg.posts_dir)
+    if not root.exists():
+        console.print(f"[red]Posts dir not found:[/] {root}")
+        raise typer.Exit(code=2)
+
+    examples, stats = build_dataset(
+        root,
+        language=cfg.style.language,
+        include_drafts=include_drafts,
+        redact=redact,
+        limit=limit,
+    )
+    if not examples:
+        console.print("[red]No training examples produced (posts may be too short).[/]")
+        console.print_json(data=stats)
+        raise typer.Exit(code=2)
+
+    write_jsonl(examples, out)
+    console.print(f"[green]Wrote:[/] {out}")
+    console.print_json(data=stats)
 

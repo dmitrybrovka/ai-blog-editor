@@ -77,6 +77,20 @@ aiblog rewrite --in "out/draft.md" --out "out/draft_rewrite.md"
 aiblog headline "Тема поста"
 ```
 
+## LoRA dataset (for fine-tuning)
+Build JSONL for instruction-tuning from your posts:
+
+```bash
+aiblog dataset lora --out out/lora_dataset.jsonl
+```
+
+By default it:
+- skips `status: draft` notes
+- redacts obvious PII-like strings (emails/phones/urls/paths). Use `--no-redact` to disable.
+
+## QLoRA training (cloud) and local usage
+See `docs/lora-qlora-training.md`.
+
 ## Files / directories
 - `config.yaml`: models, RAG settings, style rules
 - `data/posts/`: your source posts (private)

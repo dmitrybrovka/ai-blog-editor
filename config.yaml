@@ -1,0 +1,21 @@
+ollama:
+  base_url: "http://localhost:11434"
+  chat_model: "qwen2.5:7b-instruct"
+  embed_model: "nomic-embed-text"
+  request_timeout_s: 120.0
+
+posts_dir: "data/posts"
+
+rag:
+  persist_dir: ".aiblog/chroma"
+  collection: "posts"
+  top_k: 6
+  chunk_chars: 2800
+  chunk_overlap_chars: 400
+
+style:
+  language: "ru"
+  voice_rules:
+    - "Пиши естественно и конкретно, без канцелярита."
+    - "Если в контексте нет фактов/цифр — не выдумывай. Лучше попроси уточнение в тексте как TODO."
+    - "Используй короткие абзацы, где уместно — списки."

@@ -22,6 +22,54 @@ class IngestedDoc:
     metadata: dict[str, Any]
 
 
+def _is_scalar_metadata_value(v: Any) -> bool:
+    return v is None or isinstance(v, (str, int, float, bool))
+
+
+def sanitize_chroma_metadata(meta: dict[str, Any]) -> dict[str, Any]:
+    """
+    Chroma metadata restrictions (practical):
+    - values: str/int/float/bool/None or a non-empty list of a single scalar type
+    - empty lists are invalid
+    - dicts/objects are invalid
+    """
+    out: dict[str, Any] = {}
+    for k, v in meta.items():
+        if v is None:
+            out[k] = None
+            continue
+
+        # Normalize common non-scalar types
+        if isinstance(v, Path):
+            v = str(v)
+
+        if _is_scalar_metadata_value(v):
+            out[k] = v
+            continue
+
+        if isinstance(v, list):
+            if len(v) == 0:
+                continue
+            # ensure homogeneous scalar list
+            first = v[0]
+            if not _is_scalar_metadata_value(first):
+                continue
+            first_t = type(first)
+            ok = True
+            for item in v:
+                if type(item) is not first_t or not _is_scalar_metadata_value(item):
+                    ok = False
+                    break
+            if ok:
+                out[k] = v
+            continue
+
+        # Drop unsupported metadata values (dicts, sets, tuples, etc.)
+        continue
+
+    return out
+
+
 def load_post(path: Path, *, posts_root: Optional[Path] = None) -> IngestedDoc:
     doc_id = str(path)
     if posts_root is not None:
@@ -95,6 +143,7 @@ class VectorStore:
             docs.append(ch.text)
             m = dict(doc.metadata)
             m.update({"chunk_idx": ch.idx, "chunk_start": ch.start, "chunk_end": ch.end, "title": doc.title})
+            m = sanitize_chroma_metadata(m)
             metas.append(m)
             embs.append(self._ollama.embeddings(self._embed_model, ch.text))
 
@@ -110,7 +159,7 @@ class VectorStore:
         docs = (res.get("documents") or [[]])[0]
         metas = (res.get("metadatas") or [[]])[0]
         dists = (res.get("distances") or [[]])[0]
-        for doc, meta, dist in zip(docs, metas, dists, strict=False):
+        for doc, meta, dist in zip(docs, metas, dists):
             out.append({"text": doc, "meta": meta, "distance": dist})
         return out
 

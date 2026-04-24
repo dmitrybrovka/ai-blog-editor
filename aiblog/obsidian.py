@@ -97,10 +97,11 @@ def parse_obsidian_markdown(path: Path) -> ObsidianDoc:
 
     md = (post.content or "").strip()
 
+    # ChromaDB metadata has restrictions: empty lists are invalid.
+    # Store tags only when non-empty; otherwise omit the key.
     meta.update(
         {
             "title": title,
-            "tags": tags,
             "status": status,
             "date": date,
             "summary": summary,
@@ -108,6 +109,10 @@ def parse_obsidian_markdown(path: Path) -> ObsidianDoc:
             "source_name": path.name,
         }
     )
+    if tags:
+        meta["tags"] = tags
+    else:
+        meta.pop("tags", None)
 
     return ObsidianDoc(
         path=path,

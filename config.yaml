@@ -8,11 +8,11 @@ posts_dir: "data/posts"
 out_dir: "out"
 
 rag:
+  top_k: 10
+  chunk_chars: 1200
+  chunk_overlap_chars: 200
   persist_dir: ".aiblog/chroma"
   collection: "posts"
-  top_k: 6
-  chunk_chars: 2800
-  chunk_overlap_chars: 400
 
 style:
   language: "ru"

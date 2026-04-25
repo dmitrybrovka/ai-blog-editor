@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.status import Status
 
 from aiblog.config import load_config, save_default_config
 from aiblog.lora_dataset import build_dataset, write_jsonl
@@ -28,6 +31,56 @@ def _read_text(path: Path) -> str:
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text.strip() + "\n", encoding="utf-8")
+
+
+def _status(message: str) -> Status:
+    # Rich auto-disables animations when not a TTY.
+    # Use an ASCII-ish spinner to keep the output simple.
+    return console.status(message, spinner="line")
+
+
+_FILENAME_SAFE_RE = re.compile(r"[^\w-]+", flags=re.UNICODE)
+_FILENAME_DASH_RE = re.compile(r"[-_]{2,}")
+
+
+def _slugify(text: str, *, max_len: int = 48) -> str:
+    s = text.strip().lower().replace("ё", "е")
+    s = s.replace("/", "-").replace("\\", "-")
+    s = re.sub(r"\s+", "-", s)
+    s = _FILENAME_SAFE_RE.sub("", s)
+    s = _FILENAME_DASH_RE.sub("-", s).strip("-_")
+    if not s:
+        return "post"
+    if len(s) > max_len:
+        s = s[:max_len].rstrip("-")
+    return s or "post"
+
+
+def _timestamp() -> str:
+    # Include seconds to reduce collision probability.
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def _default_out_path(cfg_out_dir: str, *, kind: str, topic: Optional[str] = None, stem: Optional[str] = None) -> Path:
+    base = Path(cfg_out_dir)
+    ts = _timestamp()
+    counter = 0
+
+    if stem:
+        slug = _slugify(stem)
+        candidate = base / f"{kind}-{slug}-{ts}.md"
+    elif topic:
+        slug = _slugify(topic)
+        candidate = base / f"{kind}-{slug}-{ts}.md"
+    else:
+        candidate = base / f"{kind}-{ts}.md"
+
+    # Ensure we don't overwrite an existing file if called multiple times quickly.
+    out = candidate
+    while out.exists():
+        counter += 1
+        out = out.with_name(f"{candidate.stem}-{counter}{candidate.suffix}")
+    return out
 
 
 @config_app.command("init")
@@ -84,8 +137,9 @@ def outline(
     """Generate an outline using RAG."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
-    text = writer.outline(topic=topic, notes=notes)
-    out = out or (Path(cfg.out_dir) / "outline.md")
+    with _status(f"Generating outline with {cfg.ollama.chat_model} (RAG + Ollama)..."):
+        text = writer.outline(topic=topic, notes=notes)
+    out = out or _default_out_path(cfg.out_dir, kind="outline", topic=topic)
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 
@@ -100,8 +154,9 @@ def draft(
     """Generate a draft post using RAG."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
-    text = writer.draft(topic=topic, notes=notes)
-    out = out or (Path(cfg.out_dir) / "draft.md")
+    with _status(f"Generating post with {cfg.ollama.chat_model} (RAG + Ollama)..."):
+        text = writer.draft(topic=topic, notes=notes)
+    out = out or _default_out_path(cfg.out_dir, kind="post", topic=topic)
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 
@@ -116,8 +171,9 @@ def rewrite(
     """Rewrite text in your style."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
-    text = writer.rewrite(input_text=_read_text(in_path), topic_hint=topic_hint)
-    out = out or (Path(cfg.out_dir) / "rewrite.md")
+    with _status(f"Rewriting with {cfg.ollama.chat_model} (RAG + Ollama)..."):
+        text = writer.rewrite(input_text=_read_text(in_path), topic_hint=topic_hint)
+    out = out or _default_out_path(cfg.out_dir, kind="rewrite", stem=in_path.stem)
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 
@@ -131,8 +187,9 @@ def headline(
     """Generate headline variants."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
-    text = writer.headline(topic=topic)
-    out = out or (Path(cfg.out_dir) / "headlines.md")
+    with _status(f"Generating headlines with {cfg.ollama.chat_model} (RAG + Ollama)..."):
+        text = writer.headline(topic=topic)
+    out = out or _default_out_path(cfg.out_dir, kind="headlines", topic=topic)
     _write_text(out, text)
     console.print(f"[green]Wrote:[/] {out}")
 

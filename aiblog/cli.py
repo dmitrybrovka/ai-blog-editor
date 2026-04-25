@@ -8,6 +8,8 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.status import Status
+import frontmatter
+from time import monotonic
 
 from aiblog.config import load_config, save_default_config
 from aiblog.lora_dataset import build_dataset, write_jsonl
@@ -31,6 +33,17 @@ def _read_text(path: Path) -> str:
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text.strip() + "\n", encoding="utf-8")
+
+
+def _write_with_frontmatter(path: Path, *, body_md: str, title: str, summary: str, status: str = "draft") -> None:
+    post = frontmatter.Post(body_md.strip() + "\n")
+    post["title"] = title
+    post["date"] = datetime.now().strftime("%Y-%m-%d")
+    post["status"] = status
+    post["summary"] = summary
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
 
 def _status(message: str) -> Status:
@@ -137,10 +150,18 @@ def outline(
     """Generate an outline using RAG."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
+    started = monotonic()
     with _status(f"Generating outline with {cfg.ollama.chat_model} (RAG + Ollama)..."):
         text = writer.outline(topic=topic, notes=notes)
+    elapsed_s = monotonic() - started
     out = out or _default_out_path(cfg.out_dir, kind="outline", topic=topic)
-    _write_text(out, text)
+    _write_with_frontmatter(
+        out,
+        body_md=text,
+        title=topic,
+        status="draft",
+        summary=f"model={cfg.ollama.chat_model}; duration_s={elapsed_s:.2f}",
+    )
     console.print(f"[green]Wrote:[/] {out}")
 
 
@@ -154,10 +175,18 @@ def draft(
     """Generate a draft post using RAG."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
+    started = monotonic()
     with _status(f"Generating post with {cfg.ollama.chat_model} (RAG + Ollama)..."):
         text = writer.draft(topic=topic, notes=notes)
+    elapsed_s = monotonic() - started
     out = out or _default_out_path(cfg.out_dir, kind="post", topic=topic)
-    _write_text(out, text)
+    _write_with_frontmatter(
+        out,
+        body_md=text,
+        title=topic,
+        status="draft",
+        summary=f"model={cfg.ollama.chat_model}; duration_s={elapsed_s:.2f}",
+    )
     console.print(f"[green]Wrote:[/] {out}")
 
 
@@ -171,10 +200,18 @@ def rewrite(
     """Rewrite text in your style."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
+    started = monotonic()
     with _status(f"Rewriting with {cfg.ollama.chat_model} (RAG + Ollama)..."):
         text = writer.rewrite(input_text=_read_text(in_path), topic_hint=topic_hint)
+    elapsed_s = monotonic() - started
     out = out or _default_out_path(cfg.out_dir, kind="rewrite", stem=in_path.stem)
-    _write_text(out, text)
+    _write_with_frontmatter(
+        out,
+        body_md=text,
+        title=topic_hint or in_path.stem,
+        status="draft",
+        summary=f"model={cfg.ollama.chat_model}; duration_s={elapsed_s:.2f}",
+    )
     console.print(f"[green]Wrote:[/] {out}")
 
 
@@ -187,10 +224,18 @@ def headline(
     """Generate headline variants."""
     cfg = load_config(config)
     writer = RagWriter(cfg)
+    started = monotonic()
     with _status(f"Generating headlines with {cfg.ollama.chat_model} (RAG + Ollama)..."):
         text = writer.headline(topic=topic)
+    elapsed_s = monotonic() - started
     out = out or _default_out_path(cfg.out_dir, kind="headlines", topic=topic)
-    _write_text(out, text)
+    _write_with_frontmatter(
+        out,
+        body_md=text,
+        title=topic,
+        status="draft",
+        summary=f"model={cfg.ollama.chat_model}; duration_s={elapsed_s:.2f}",
+    )
     console.print(f"[green]Wrote:[/] {out}")
 
 

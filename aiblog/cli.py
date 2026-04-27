@@ -25,6 +25,24 @@ app.add_typer(dataset_app, name="dataset")
 
 console = Console()
 
+_MODEL_QUALITY_SCALE_MIN = 1
+_MODEL_QUALITY_SCALE_MAX = 5
+_MODEL_QUALITY_REQUIRE_COMMENT_BELOW = 4
+
+_MODEL_QUALITY_FIELD_KEYS: list[str] = [
+    "q_follow_task",
+    "q_completeness",
+    "q_factual_correctness",
+    "q_verifiability",
+    "q_consistency",
+    "q_clarity",
+    "q_structure",
+    "q_practical_value",
+    "q_style_tone",
+    "q_artifacts_hallucinations",
+    "q_editability",
+]
+
 
 def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -35,12 +53,27 @@ def _write_text(path: Path, text: str) -> None:
     path.write_text(text.strip() + "\n", encoding="utf-8")
 
 
-def _write_with_frontmatter(path: Path, *, body_md: str, title: str, summary: str, status: str = "draft") -> None:
+def _write_with_frontmatter(
+    path: Path,
+    *,
+    body_md: str,
+    title: str,
+    summary: str,
+    status: str = "draft",
+    add_quality_fields: bool = False,
+) -> None:
     post = frontmatter.Post(body_md.strip() + "\n")
     post["title"] = title
     post["date"] = datetime.now().strftime("%Y-%m-%d")
     post["status"] = status
     post["summary"] = summary
+    if add_quality_fields:
+        post["q_scale_min"] = _MODEL_QUALITY_SCALE_MIN
+        post["q_scale_max"] = _MODEL_QUALITY_SCALE_MAX
+        post["q_require_comment_below"] = _MODEL_QUALITY_REQUIRE_COMMENT_BELOW
+        for option_name in _MODEL_QUALITY_FIELD_KEYS:
+            # `None` serializes to YAML `null`, nudging editors to keep it numeric.
+            post[option_name] = None
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(frontmatter.dumps(post), encoding="utf-8")
@@ -186,6 +219,7 @@ def draft(
         title=topic,
         status="draft",
         summary=f"model={cfg.ollama.chat_model}; duration_s={elapsed_s:.2f}",
+        add_quality_fields=True,
     )
     console.print(f"[green]Wrote:[/] {out}")
 
@@ -211,6 +245,7 @@ def rewrite(
         title=topic_hint or in_path.stem,
         status="draft",
         summary=f"model={cfg.ollama.chat_model}; duration_s={elapsed_s:.2f}",
+        add_quality_fields=True,
     )
     console.print(f"[green]Wrote:[/] {out}")
 
